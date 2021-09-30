@@ -1,21 +1,22 @@
 FROM tensorflow/tensorflow:latest-gpu
+LABEL maintainer="Arnoldas Kurbanovas akurbanovas@albany.edu"
 #copy python reqs and install
 RUN apt-get update --fix-missing && \
     apt-get install -y wget bzip2 curl git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 # Create a non-root user
-ARG username=lgaudet
-ARG uid=22082
-ARG gid=22082
+ARG username=mwilson
+ARG uid=1014
+ARG gid=1014
 ENV USER $username
 ENV UID $uid
 ENV GID $gid
 ENV HOME /raid/$USER
 
 RUN groupadd $USER -g22082
-RUN mkdir -p /raid/$USER
-RUN useradd -m -d /raid/$USER/ -s /bin/bash -u22082 -g22082 $USER
+#RUN mkdir -p /raid/$USER
+RUN useradd -m -d /raid/$USER/ -s /bin/bash -u1014 -g1014 $USER
 
 COPY entrypoint.sh /usr/local/bin/
 RUN chown $UID:$GID /usr/local/bin/entrypoint.sh && \
