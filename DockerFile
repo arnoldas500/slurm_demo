@@ -1,6 +1,11 @@
-ARG ROOT_CONTAINER=nvcr.io/nvidia/cuda:11.4.1-devel-ubuntu20.04
+ARG ROOT_CONTAINER=tensorflow/tensorflow:latest-gpu
 
 FROM $ROOT_CONTAINER
+
+RUN apt-get update --fix-missing && \
+    apt-get install -y wget bzip2 curl git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 LABEL maintainer="Arnoldas Kurbanovas akurbanovas@albany.edu"
 ARG NB_USER="mwilson"
@@ -12,13 +17,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
+#RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends apt-utils
+
 # Install all OS dependencies for notebook server that starts but lacks all
 # features (e.g., download as all possible file formats)
 # Install tini: init for containers
-ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update --yes && \
+#ENV DEBIAN_FRONTEND noninteractive
+RUN DEBIAN_FRONTEND=noninteractive apt-get update --yes && \
     apt-get install --yes --no-install-recommends \
-    tini \
     wget \
     ca-certificates \
     sudo \
