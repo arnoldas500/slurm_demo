@@ -8,9 +8,9 @@ RUN apt-get update --fix-missing && \
     rm -rf /var/lib/apt/lists/*
 
 LABEL maintainer="Arnoldas Kurbanovas akurbanovas@albany.edu"
-ARG NB_USER="mwilson"
-ARG NB_UID="1014"
-ARG NB_GID="1014"
+ARG NB_USER="aevans"
+ARG NB_UID="22085"
+ARG NB_GID="22085"
 
 # Fix DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -36,7 +36,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update --yes && \
     locale-gen
 
 
-RUN groupadd $NB_USER -g1014
+RUN groupadd $NB_USER -g22085
 
 #COPY environment.yml /tmp/
 #RUN chown $NB_UID:$NB_GID /tmp/environment.yml
