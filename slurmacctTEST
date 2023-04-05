@@ -260,6 +260,9 @@ export SLURM_TIME_FORMAT="%s"
 #export FORMAT="JobID,User${ulen},Group${glen},Partition,AllocNodes,AllocCPUS,Submit,Eligible,Start,End,CPUTimeRAW,State,WorkDir,alloctres"
 export FORMAT="JobID,User${ulen},Group${glen},Partition,AllocNodes,AllocCPUS,Submit,Eligible,Start,End,CPUTimeRAW,State,WorkDir,alloctres"
 export FORMAT2="ElapsedRaw"
+export FORMAT3="ElapsedRaw,alloctres"
+export FORMAT4="CPUTimeRAW"
+
 # Request job states: CAncelled, ReQueued, CompleteD, Failed, TimeOut, PReempted, Out_Of_Memory
 export STATE="ca,rq,cd,f,to,pr,oom"
 
@@ -270,20 +273,33 @@ export STATE="ca,rq,cd,f,to,pr,oom"
 echo "Total run hours:"
 hours=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT2 -s $STATE | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum/3600 }')
 echo $hours
-echo "GPUs used:"
+echo "Total # GPUs used:"
 #$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh "/gpu=[0-99]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }'
 gpus=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh "/gpu=[1-99]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }')
 echo $gpus
-echo "CPUs used:"
-#$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh ",cpu=[0-9999]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }' 
+
+gpuhours=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT3 -s $STATE | grep -h "/gpu=[1-99]" | cut -d"|" -f1 | awk '{ sum += $1 } END { print sum/3600 }')
+echo "GPU Time Raw: "
+echo $gpuhours
+
+echo "GPU hours: "
+echo $gpuhours*$gpus | bc
+
+echo "Total # CPUs used:"
+#$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh ",cpu=[0-9999]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }'
 cpus=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh ",cpu=[1-9999]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }')
 echo $cpus
 
-echo "GPU hours: "
-echo $hours*$gpus | bc
+cpuhours=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT3 -s $STATE | grep -h ",cpu=[1-9999]" | cut -d"|" -f1 | awk '{ sum += $1 } END { print sum/3600 }')
+echo "CPU Time Raw: "
+echo $cpuhours
+
+cpuhours1=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT4 -s $STATE | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum/3600 }')
+echo "CPU Time Raw SLURM: "
+echo $cpuhours1
 
 echo "CPU hours: "
-echo $hours*$cpus | bc
+echo $cpuhours*$cpus | bc
 
 exit 0
 
