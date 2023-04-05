@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+
+#####################################################################################
+#
+# Command usage:
+#
+function usage()
+{
+	cat <<EOF
+Usage: slurmacct [-s Start_time -e End_time | -c | -w | -m monthyear] [-p partition(s)] [-u username] [-g groupname] [-a gpus] [-G] [-W workdir] [-r report-prefix] [-n] [-h]
+where:
+	-s Start_time [last month]: Starting time of accounting period.
+	-e End_time [last month]: End time of accounting period.
+	-c: Current month
+	-w: Last week
+	-m monthyear: Select month and year (like "november2019")
+	-p partition(s): Select only Slurm partion <partition>[,partition2,...]
+	-u username: Print only user <username> 
+	-g groupname: Print only users in UNIX group <groupname>
+	-G: Print only groupwise summed accounting data
+	-W directory: Print only jobs with this string in the job WorkDir
+	-r: Report name prefix
+	-n: No header information is printed
+	-h: Print this help information
+
+The Start_time and End_time values specify the date/time interval of
+job completion/termination (see "man sacct").
+
+Hint: Specify Start/End time as MMDD (Month and Date)
+EOF
+}
+
+#####################################################################################
+
+# Report file prefix
+REPORT_PREFIX=/tmp/Slurm_report_acct_
+export partition=""
+export username=""
+export groupname=""
+export workdir=""
+export ALLGROUPS=0
+export SORTCOLUMN=5
+export prefix=/usr/bin
+export printheader=1
+export month="last"
+export gpus=""
+
+# Process options
+while getopts "a:p:u:g:s:e:r:m:W:cwGhn" options; do
+    case $options in
+	a )     export gpus=$OPTARG
+		;;
+		p )     export partition=$OPTARG
+			echo Print only accounting in Slurm partition $OPTARG
+			;;
+		u )     export username=$OPTARG
+			export ALLGROUPS=0
+			echo Print only user $OPTARG
+			;;
+		g )     export groupname="$OPTARG"
+			export ALLGROUPS=0
+	    		export SORTCOLUMN=5
+			echo Print only users in UNIX group $OPTARG
+			;;
+		G )     export ALLGROUPS=1
+			export username=""
+			export groupname=""
+	    		export SORTCOLUMN=4
+			echo Print only groupwise summed accounting data
+			;;
+		s )     export start_time=$OPTARG
+			echo Start date $OPTARG
+			REPORT_NAME=${start_time}_${end_time}
+			;;
+		e )     export end_time=$OPTARG
+			echo End date $OPTARG
+			REPORT_NAME=${start_time}_${end_time}
+			;;
+		m )     echo Select month $OPTARG 
+			start_time=`date -d "1$OPTARG" +%m01%y`
+			end_time=`date -d "1$OPTARG + 1 month" +%m01%y`
+			MONTH=`date -d "1$OPTARG" +%B`
+			YEAR=`date -d "1$OPTARG" +%Y`
+			REPORT_NAME=${MONTH}_${YEAR}
+			;;
+		c )     export start_time=`date +%m01%y`
+			export end_time=`date +%m%d%y`
+			echo Select current month from $start_time until $end_time
+			REPORT_NAME=Current_month
+			;;
+		w )     export start_time=`date -d 'last week' +%m%d%y`
+			export end_time=`date +%m%d%y`
+			echo Select last week from $start_time until $end_time
+			REPORT_NAME=Last_week
+			;;
+		W )     export workdir=$OPTARG
+			echo Print only accounting data for jobs with working directory $workdir
+			;;
+		r )     export REPORT_PREFIX="$OPTARG"
+			echo Copy report to $OPTARG
+			;;
+		n )     export printheader=0
+			;;
+		h|? ) usage
+			exit 1;;
+		* ) usage
+			exit 1;;
+	esac
+done
+shift $((OPTIND-1))
+
+# Check Slurm commands path
+if test -x /usr/local/bin/sacct
+then
+	export prefix=/usr/local/bin
+elif ! test -x $prefix/sacct
+then
+	echo "ERROR: Slurm commands not found in '$prefix/' (Set 'prefix=')"
+	exit 1
+fi
+
+#
+# Default period: last month 
+#
+# Test if either start_time or end_time are empty strings
+if test -z "$start_time" -o -z "$end_time"
+then
+	MONTH=`date -d "last month" +%B`
+	YEAR=`date -d "last month" +%Y`
+	REPORT_NAME=${MONTH}_${YEAR}
+	start_time=`date -d "last month" +%m01%y`
+	end_time=`date -d "last month + 1 month" +%m01%y`
+fi
+
+# Check partition names
+if test -n "$partition"
+then
+	for p in `echo $partition | sed 's/,/ /g'`
+	do
+		# echo "Check partition $p"
+	if test -z "`sinfo -h -p $p -O PartitionName`" 
+	then
+			echo "ERROR: Invalid partition name $p"
+			# echo "Valid partition names are:"
+			# sinfo -O "PartitionName"
+			exit -1
+		fi
+	done
+fi
+
+# Test username
+if test -n "$username" 
+then
+	if test -z "`$prefix/sacctmgr -p -n show assoc where users=$username`"
+	then
+		echo Error selecting Slurm username $username 
+		exit -1
+	fi
+fi
+# Test groupname
+if test -n "$groupname"
+then
+	getent group $groupname > /dev/null
+	if test "$?" -ne 0
+	then
+		echo "Error selecting UNIX groupname $groupname (it does not exist)"
+		exit -1
+	fi
+fi
+
+#####################################################################################
+#
+# Print a heading, and make selection for sacct report
+#
+# First report overall statistics including nicely formatted start/end date:
+# Change the date/time format in report header for readibility (formats in "man strftime")
+
+REPORT=${REPORT_PREFIX}${REPORT_NAME}
+
+export SLURM_TIME_FORMAT="%d-%b-%Y_%R"
+
+# Selections for sacct:
+selection=""
+
+# Print a report header
+
+if test $printheader -gt 0
+then
+	# Print a sreport header (overwrite any existing file)
+	$prefix/sreport cluster utilization start=$start_time end=$end_time -t percent > $REPORT
+fi
+
+# Request of a specific partition
+if test -n "$partition"
+then
+	echo >> $REPORT
+	echo Partition selected: $partition >> $REPORT
+	selection="--partition $partition $selection"
+fi
+
+if test $ALLGROUPS -eq 0
+then
+	# User statistics
+	echo >> $REPORT
+	if test -n "$workdir"
+	then
+		echo "Print only accounting data for jobs with working directory $workdir" >> $REPORT
+		echo >> $REPORT
+	fi
+	echo Usage sorted by top users: >> $REPORT
+	# echo "Jobs completed/terminated between date/time $start_time and $end_time"
+	if test -n "$username"
+	then
+		echo "User name selected: $username" >> $REPORT
+		selection="--user $username $selection"
+	else
+		# Select all users
+		selection="-a $selection"
+	fi
+	if test -n "$groupname"
+	then
+		echo "Group name selected: $groupname" >> $REPORT
+		selection="--group $groupname $selection"
+	fi
+	echo "                             Wallclock          Average Average" >> $REPORT
+	echo "Username    Group    #jobs       hours  Percent  #cpus  q-hours  Full name" >> $REPORT
+	echo "--------    -----  ------- -----------  ------- ------- -------  ---------" >> $REPORT
+else
+	# Group statistics
+	echo >> $REPORT
+	if test -n "$workdir"
+	then
+		echo "Print only accounting data for jobs with working directory $workdir" >> $REPORT
+		echo >> $REPORT
+	fi
+	echo Usage sorted by top groups: >> $REPORT
+	# echo "Jobs completed/terminated between date/time $start_time and $end_time"
+	echo "                    Wallclock          Average Average" >> $REPORT
+	echo "   Group    #jobs       hours  Percent  #cpus  q-hours" >> $REPORT
+	echo "   -----  ------- -----------  ------- ------- -------" >> $REPORT
+fi
+
+#####################################################################################
+#
+# Get and process Slurm accounting records
+
+# Get length of strings for sacct formatting
+if test -n "$usernamelength"
+then
+	ulen="%${#username}"
+fi
+if test -n "$groupnamelength"
+then
+	glen="%${#groupname}"
+fi
+
+# Report time in seconds:
+export SLURM_TIME_FORMAT="%s"
+# Request job data
+#export FORMAT="JobID,User${ulen},Group${glen},Partition,AllocNodes,AllocCPUS,Submit,Eligible,Start,End,CPUTimeRAW,State,WorkDir,alloctres"
+export FORMAT="JobID,User${ulen},Group${glen},Partition,AllocNodes,AllocCPUS,Submit,Eligible,Start,End,CPUTimeRAW,State,WorkDir,alloctres"
+export FORMAT2="ElapsedRaw"
+# Request job states: CAncelled, ReQueued, CompleteD, Failed, TimeOut, PReempted, Out_Of_Memory
+export STATE="ca,rq,cd,f,to,pr,oom"
+
+# Get Slurm individual job accounting records using the "sacct" command
+# The "-a" flag was removed 04-Jan-2023
+#$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE
+
+echo "Total run hours:"
+hours=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT2 -s $STATE | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum/3600 }')
+echo $hours
+echo "GPUs used:"
+#$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh "/gpu=[0-99]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }'
+gpus=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh "/gpu=[1-99]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }')
+echo $gpus
+echo "CPUs used:"
+#$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh ",cpu=[0-9999]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }' 
+cpus=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh ",cpu=[1-9999]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }')
+echo $cpus
+
+echo "GPU hours: "
+echo $hours*$gpus | bc
+
+echo "CPU hours: "
+echo $hours*$cpus | bc
+
+exit 0
+
