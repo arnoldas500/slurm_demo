@@ -278,12 +278,42 @@ echo "Total # GPUs used:"
 gpus=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh "/gpu=[1-99]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }')
 echo $gpus
 
+gpus_arr=($($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh "/gpu=[1-99]" | grep -o '[[:digit:]]*'))
+#echo $gpus_arr
+
 gpuhours=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT3 -s $STATE | grep -h "/gpu=[1-99]" | cut -d"|" -f1 | awk '{ sum += $1 } END { print sum/3600 }')
 echo "GPU Time Raw: "
 echo $gpuhours
 
-echo "GPU hours: "
-echo $gpuhours*$gpus | bc
+gpuhours_arr=($($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT3 -s $STATE | grep -h "/gpu=[1-99]" | cut -d"|" -f1))
+#echo $gpuhours_arr
+#echo "sum"
+
+foo=(2 2)
+bar=(3020 2069)
+sum=0
+for j in "${!bar[@]}"; do
+    ((sum+=${foo[j]} * ${bar[j]}))
+    #echo ${foo[1]}
+done
+#echo $sum
+
+
+#declare -i total=0 
+total=0
+for i in "${!gpus_arr[@]}"; do
+#for (( i=0; i< ${!gpus_arr[@]}; i++ )); do
+    ((total+=${gpus_arr[i]} * ${gpuhours_arr[i]}))
+    #echo ${gpus_arr[1]}
+    # ${gpus_arr[$i]} * ${gpuhours_arr[$i]}
+    #arr=((${gpus_arr[$i]} * ${gpuhours_arr[$i]}))
+done
+#total=$total/3600
+echo "GPU charge hours"
+echo $(($total/3600))
+
+#echo "GPU hours: "
+#echo $gpuhours*$gpus | bc
 
 echo "Total # CPUs used:"
 #$prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s $STATE | grep -oh ",cpu=[0-9999]" | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum }'
@@ -291,15 +321,15 @@ cpus=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT -s
 echo $cpus
 
 cpuhours=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT3 -s $STATE | grep -h ",cpu=[1-9999]" | cut -d"|" -f1 | awk '{ sum += $1 } END { print sum/3600 }')
-echo "CPU Time Raw: "
-echo $cpuhours
+#echo "CPU Time Raw: "
+#echo $cpuhours
 
 cpuhours1=$($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $FORMAT4 -s $STATE | grep -o '[[:digit:]]*' | awk '{ sum += $1 } END { print sum/3600 }')
-echo "CPU Time Raw SLURM: "
+echo "CPU charge hours: "
 echo $cpuhours1
 
-echo "CPU hours: "
-echo $cpuhours*$cpus | bc
+#echo "CPU hours: "
+#echo $cpuhours*$cpus | bc
 
 exit 0
 
