@@ -289,13 +289,13 @@ gpuhours_arr=($($prefix/sacct $selection -np -X -S $start_time -E $end_time -o $
 #echo $gpuhours_arr
 #echo "sum"
 
-foo=(2 2)
-bar=(3020 2069)
-sum=0
-for j in "${!bar[@]}"; do
-    ((sum+=${foo[j]} * ${bar[j]}))
+#foo=(2 2)
+#bar=(3020 2069)
+#sum=0
+#for j in "${!bar[@]}"; do
+#    ((sum+=${foo[j]} * ${bar[j]}))
     #echo ${foo[1]}
-done
+#done
 #echo $sum
 
 
