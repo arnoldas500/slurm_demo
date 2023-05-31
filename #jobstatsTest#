@@ -126,17 +126,7 @@ export STATE="ca,cd,f,to,pr,oom"
 #sacct $partitionselect -X -np -a -S $start_time -E $end_time -o $FORMAT
 sacct $partitionselect -X -np -a -S $start_time -E $end_time -o $FORMAT  | awk -F"|" '
 BEGIN {
-      # First get the list of user full names from /etc/passwd lines
-        totaljobs=0
-	COMMAND="getent passwd"
-        while (COMMAND | getline ) {
-                split($0,b,":")         # Split password line into fields
-                fullname[b[1]] = b[5]   # Full name b[5] of this username (b[1])
-                #print b[1], fullname[b[1]]
-        }
-        close(COMMAND)
-	#print "JobID\tPart\tuser\tWallhrs\tNgpus\tGPUhrs\tNcpus\tCPUhrs"
-	print "User\tPart\tGPUhrs\tCPUhrs"
+	print "JobID\tPart\tuser\tWallhrs\tNgpus\tGPUhrs\tNcpus\tCPUhrs"
 }
 {
 	# Parse input data
@@ -174,50 +164,11 @@ BEGIN {
 	wallhours = wall/3600
 	gpuhrs = wallhours * ngpus
         cpuhrs = wallhours * total_ncpus
-	#wallhours = wall
-	#printf("%d\t%s\t%s\t%.3f\t%d\t%.3f\t%d\t%.3f\n", JobID, part, user, wallhours, ngpus, gpuhrs, total_ncpus, cpuhrs)
-	#printf("%d\t%s\t%.3f\t%.3f\t%d\t%.3f\t%d\n", JobID, user, wallhours, gpuhrs, ngpus, cpuhrs, total_ncpus)
-} {
-	# For accounting by number of CPU cores in stead of number of nodes,
-        # uncomment the following line:
-        nodect = total_ncpus
-
-	# TOTAL accounting
-        totaljobs++
-
-        # Check if this job matches selection criteria
-        if (userselect != "" && user != userselect) next
-
-        # User accounting (a user may belong to several partitions)
-        usernamegroup[user,part] = user
-        fullnamegroup[user,part] = fullname[user]
-        usergroup[user,part] = part
-        jobs[user,part]++
-        cpunodes[user,part] += nodect*cput
-        wallnodes[user,part] += nodect*wall
-        wallgpu[user,part] += ngpus*wall
-        wallcpu[user,part] += wall
-        if (nodect < minnodes[user,part]) minnodes[user,part] = nodect
-        if (nodect > maxnodes[user,part]) maxnodes[user,part] = nodect
-        waittime[user,part] += wait
-
 	
-	#print length(usernamegroup) 	
-
-	c=1
-        for (ug in usernamegroup) {
-	#if(c==length(usernamegroup)){
-	print(usernamegroup[ug], 
-	usergroup[ug],
-        wallgpu[ug]/3600,
-	wallnodes[ug]/3600)
-	#}
-	#++c
-	}
-	#print("Total useage per user per partition" )
-	#print(usernamegroup[ug],
-        #usergroup[ug],
-        #wallgpu[ug]/3600)
+	#wallhours = wall
+	printf("%d\t%s\t%s\t%.3f\t%d\t%.3f\t%d\t%.3f\n", JobID, part, user, wallhours, ngpus, gpuhrs, total_ncpus, cpuhrs)
+	#printf("%d\t%s\t%.3f\t%.3f\t%d\t%.3f\t%d\n", JobID, user, wallhours, gpuhrs, ngpus, cpuhrs, total_ncpus)
+	
 
 } ' > $REPORT
 
