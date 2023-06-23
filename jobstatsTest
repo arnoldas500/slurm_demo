@@ -118,7 +118,7 @@ fi
 # Report time in seconds:
 export SLURM_TIME_FORMAT="%s"
 # Request job data
-export FORMAT="JobID,User,Group,Partition,AllocNodes,AllocCPUS,Submit,Eligible,Start,End,CPUTimeRAW,MaxRSS,AllocTRES,State"
+export FORMAT="JobID,User,Group,Partition,AllocNodes,AllocCPUS,Submit,Eligible,Start,End,CPUTimeRAW,MaxRSS,AllocTRES,State,Account"
 # Request job states: Cancelled, Completed, Failed, Timeout, Preempted, OUT_OF_MEMORY
 export STATE="ca,cd,f,to,pr,oom"
 
@@ -136,7 +136,7 @@ BEGIN {
         }
         close(COMMAND)
 	#print "JobID\tPart\tuser\tWallhrs\tNgpus\tGPUhrs\tNcpus\tCPUhrs"
-	print "User\tPart\tGPUhrs\tCPUhrs"
+	print "User\tPart\tGPUhrs\tCPUhrs\tAccount"
 }
 {
 	# Parse input data
@@ -156,6 +156,7 @@ BEGIN {
 	# AllocTRES requires AccountingStorageTRES=gres/gpu in slurm.conf
 	alloctres = $13		# AllocTRES: Trackable resources (GPUs used)
 	state	= $14		# Job state
+	account = $15
         wall = end - start
 	if(start == "None") wall = end - submit
 	wait	= start - eligible
@@ -190,6 +191,7 @@ BEGIN {
 
         # User accounting (a user may belong to several partitions)
         usernamegroup[user,part] = user
+	useraccount[user,part]= account
         fullnamegroup[user,part] = fullname[user]
         usergroup[user,part] = part
         jobs[user,part]++
@@ -210,12 +212,14 @@ BEGIN {
 	print(usernamegroup[ug], 
 	usergroup[ug],
         wallgpu[ug]/3600,
-	wallnodes[ug]/3600)
+	wallnodes[ug]/3600,
+	useraccount[ug])
 	#}
 	#++c
 	}
 	#print("Total useage per user per partition" )
-	#print(usernamegroup[ug],
+	
+	#print(useraccount,account)
         #usergroup[ug],
         #wallgpu[ug]/3600)
 
