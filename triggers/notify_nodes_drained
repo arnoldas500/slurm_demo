@@ -7,7 +7,7 @@
 # scontrol show config | grep SlurmUser
 
 # Configure these variables for your system:
-slurm_user=arnoldas
+slurm_user=slurm
 slurm_notify=akurbanovas@albany.edu,ksulia@albany.edu
 my_mail=/usr/bin/mailx
 
