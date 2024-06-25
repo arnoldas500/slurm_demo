@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#SBATCH --job-name=cnnViT
+#SBATCH --account=ai2es
+#SBATCH --qos=long
+#SBATCH --time=96:00:00
+#SBATCH --partition=gh200
+#SBATCH --nodelist=gh201
+#SBATCH --error=/home/aevans/slurm_error_logs/ai2es_error_%j.err
+#SBATCH --output=/home/aevans/slurm_output_logs/ai2es_log_%j.out
+
+docker run --gpus all -d --ulimit memlock=-1 --ulimit stack=67108864 -v /home/aevans:/home/aevans -v /rdma/dgx-a100/NYSM/:/home/aevans/nysm -v /rdma/xcitedb/AI2ES/:/home/aevans/ai2es -w /home/aevans -u 22085:22085 akurbanovas/pytorch-vit-gh200:v0.1 timeout 96h python /home/aevans/nwp_bias/src/machine_learning/src/engine_xLSTM.py
